@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- keep playing with the screen locked or another app in front -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
+	<!-- beatscript://beatscript.app/#CID.packed (and /c/, /p/, /pair#) open in the app -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>app.beatscript</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>beatscript</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Documents (soundfonts, saved programs) shows in the Files app -->
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+</dict>
+</plist>

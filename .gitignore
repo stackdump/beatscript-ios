@@ -1,0 +1,19 @@
+.DS_Store
+.build/
+build/
+.swiftpm/
+xcuserdata/
+DerivedData/
+# made by scripts/build-xcframework.sh from the pinned engine crate (rust/PINS): never committed
+/rust/src/
+/rust/upstream/
+/rust/target/
+/rust/dist/
+/Sources/BeatScriptEngine/djmobile.swift
+/Tests/BeatScriptParityTests/Fixtures/
+# signing and credentials stay on the machine that signs
+*.mobileprovision
+*.p12
+*.cer
+*.key
+.env
