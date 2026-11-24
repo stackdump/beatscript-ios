@@ -77,20 +77,40 @@ final class PlaybackTests: XCTestCase {
     XCTAssertTrue(seen.contains("drop"), "the arrangement plays past its first section: \(seen)")
     XCTAssertGreaterThan(loud, 0.01, "it is heard")
 
+    let volumes = Dictionary(uniqueKeysWithValues: BeatScriptEngine.decks.compactMap { e.deck($0) }.map { ($0.deck, $0.volume) })
+    try stopIsSilentAtOnce(e, "first")
+
+    // the next program is heard: Stop's faders come back with the eval (not a silent replay)
+    let again = e.eval(Self.arrangeLoop)
+    XCTAssertTrue(again.ok, "\(again.diagnostics.map(\.rendered))")
+    for d in BeatScriptEngine.decks.compactMap({ e.deck($0) }) where d.loaded {
+      XCTAssertEqual(d.volume, volumes[d.deck] ?? 1, accuracy: 1e-6, "deck \(d.deck)'s fader is back after the eval")
+    }
+    var loudAgain: Float = 0
+    XCTAssertTrue(wait(5) { loudAgain = max(loudAgain, e.level()); return loudAgain > 0.01 }, "heard again after Stop and Eval: \(loudAgain)")
+    try stopIsSilentAtOnce(e, "second")
+  }
+
+  /// beatscript.app's Stop: every deck reads stopped when `stop()` returns, and what is heard (the
+  /// strips' meters through their faders) is under -60 dB within 250 ms, and stays there.
+  func stopIsSilentAtOnce(_ e: BeatScriptEngine, _ which: String) throws {
     let t0 = Date()
     e.stop()
-    let decksStopped = !(["A", "B"].compactMap { e.deck($0) }.contains { $0.playing })
-    XCTAssertTrue(decksStopped, "Stop stops every deck before it returns")
+    let returned = Date().timeIntervalSince(t0)
+    let playing = BeatScriptEngine.decks.compactMap { e.deck($0) }.filter(\.playing).map(\.deck)
+    XCTAssertEqual(playing, [], "\(which) Stop: every deck is stopped before stop() returns")
     let quiet = wait(1.0) { e.level() < 0.001 }
     let took = Date().timeIntervalSince(t0)
-    print("PLAYBACK stop: decks stopped \(decksStopped), level \(e.level()) after \(Int(took * 1000)) ms, running \(e.status().running)")
-    XCTAssertTrue(quiet, "silent after Stop: level \(e.level())")
-    XCTAssertLessThan(took, 0.25, "silent at once")
-    XCTAssertFalse(e.status().running, "the program ended")
+    // the strips' own meters (before the fader): the tails Stop lets ring out behind the faders
+    let tails = BeatScriptEngine.decks.compactMap { e.deck($0) }.map { "\($0.deck) \($0.level) vol \($0.volume)" }
+    print("PLAYBACK \(which) stop: returned in \(Int(returned * 1000)) ms, playing \(playing), heard \(e.level()) after \(Int(took * 1000)) ms, strips \(tails), running \(e.status().running)")
+    XCTAssertTrue(quiet, "\(which) Stop: silent after Stop: level \(e.level())")
+    XCTAssertLessThan(took, 0.25, "\(which) Stop: silent at once")
+    XCTAssertFalse(e.status().running, "\(which) Stop: the program ended")
     // and nothing starts again: no staged program lands after the stop
     Thread.sleep(forTimeInterval: 2.5)
-    XCTAssertLessThan(e.level(), 0.001, "still silent two bars later")
-    XCTAssertFalse(["A", "B"].compactMap { e.deck($0) }.contains { $0.playing })
+    XCTAssertLessThan(e.level(), 0.001, "\(which) Stop: still silent two bars later")
+    XCTAssertEqual(BeatScriptEngine.decks.compactMap { e.deck($0) }.filter(\.playing).map(\.deck), [], "\(which) Stop: no deck starts again")
   }
 }
 

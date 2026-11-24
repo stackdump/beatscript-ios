@@ -38,20 +38,61 @@ public final class BeatScriptEngine: @unchecked Sendable {
     #endif
   }
 
-  /// Check and stage `text`: it lands on the next bar (at once when nothing plays).
-  public func eval(_ text: String) -> BtwEval { player.btwEval(text: text) }
+  public static let decks = ["A", "B"]
+
+  /// The faders Stop pulled down, and the volume each goes back to on the next eval.
+  private var faded: [String: Double] = [:]
+  private let fadedLock = NSLock()
+
+  /// Check and stage `text`: it lands on the next bar (at once when nothing plays). A deck Stop
+  /// faded out gets its fader back first, so the program is heard from its first step.
+  public func eval(_ text: String) -> BtwEval {
+    restoreFaders()
+    return player.btwEval(text: text)
+  }
 
   /// The app's Stop (beatscript.app's Stop): the program ends and nothing sounds, at once.
   /// The language's own `stop` (decks play on) is `player.btwStop()`; this is not that.
-  public func stop() { player.btwStopSound() }
+  ///
+  /// `btwStopSound` alone is neither at once nor silent. It queues the decks' stop for the render
+  /// thread, and `state(deck).playing` is that thread's mirror, written at the end of its next
+  /// block. And djrust's transport stop is all-notes-off (CC 123), not all-sound-off: "the tails ring
+  /// out, as a deck's room does", so the strips stay above -60 dB for a second or more. So the
+  /// faders go down too (the strip gain is ramped across one block: no click), the tails ring out
+  /// behind them unheard, and this returns once the render thread has taken the stop (the mirrors
+  /// read stopped), or after `wait` seconds with no audio running.
+  public func stop(wait: TimeInterval = 0.25) {
+    player.btwStopSound()
+    // read after the stop: it has put back what the program's own `mixer` lines changed
+    fadedLock.lock()
+    for d in Self.decks {
+      guard let s = deck(d), s.loaded else { continue }
+      if faded[d] == nil { faded[d] = s.volume }
+      try? player.setVolume(deck: d, volume: 0)
+    }
+    fadedLock.unlock()
+    let end = Date().addingTimeInterval(wait)
+    while Self.decks.contains(where: { deck($0)?.playing == true }), Date() < end {
+      Thread.sleep(forTimeInterval: 0.002)
+    }
+  }
+
+  /// The faders Stop pulled down, back where they were.
+  private func restoreFaders() {
+    fadedLock.lock()
+    defer { fadedLock.unlock() }
+    for (d, v) in faded { try? player.setVolume(deck: d, volume: v) }
+    faded.removeAll()
+  }
 
   public func status() -> BtwStatus { player.btwStatus() }
   public func marks() -> BtwMarks { player.btwMarks() }
   public func deck(_ d: String) -> DeckState? { try? player.state(deck: d) }
 
-  /// The loudest deck's meter, 0 when nothing is loaded.
+  /// The loudest deck as heard: its meter (the strip's peak, before the fader) times its fader.
+  /// 0 when nothing is loaded.
   public func level() -> Float {
-    ["A", "B"].compactMap { deck($0) }.map { $0.playing || $0.level > 0 ? $0.level : 0 }.max() ?? 0
+    Self.decks.compactMap { deck($0) }.map { $0.level * Float($0.volume) }.max() ?? 0
   }
 
   public func shutdown() { player.shutdown() }
