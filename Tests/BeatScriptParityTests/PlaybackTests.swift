@@ -57,7 +57,7 @@ final class PlaybackTests: XCTestCase {
 
   func testAnArrangeLoopChecksPlaysPastItsFirstSectionAndStopSilencesAtOnce() throws {
     let e = try XCTUnwrap(Self.engine)
-    let ck = btwCheck(text: Self.arrangeLoop, storeDir: nil)
+    let ck = beatscriptCheck(text: Self.arrangeLoop, storeDir: nil)
     XCTAssertTrue(ck.ok, "\(ck.diagnostics.map(\.rendered))")
     XCTAssertTrue(ck.unavailable.isEmpty, "\(ck.unavailable)")
 
@@ -117,11 +117,11 @@ final class PlaybackTests: XCTestCase {
 /// The arrange-loop program's site links (printed for the simulator check) open back to its CID.
 final class ArrangeLoopLinkTests: XCTestCase {
   func testItsSiteLinkOpensToItsCID() throws {
-    let cid = try XCTUnwrap(btwCid(text: PlaybackTests.arrangeLoop))
+    let cid = try XCTUnwrap(beatscriptCid(text: PlaybackTests.arrangeLoop))
     let forms = try Links.share(PlaybackTests.arrangeLoop)
     print("ARRANGE_LOOP_LINK \(forms.page)")
     print("ARRANGE_LOOP_CID \(cid)")
     guard case .program(let frag) = Links.classify(forms.page) else { return XCTFail(forms.page) }
-    XCTAssertEqual(btwOpenLink(link: frag, storeDir: nil).cid, cid)
+    XCTAssertEqual(beatscriptOpenLink(link: frag, storeDir: nil).cid, cid)
   }
 }

@@ -119,7 +119,7 @@ public struct ScriptView: View {
     .background(Palette.panel)
   }
 
-  private func headerWords(_ s: BtwStatus?) -> String {
+  private func headerWords(_ s: BeatscriptStatus?) -> String {
     guard let s, s.running || s.ended else { return "nothing plays" }
     var w: [String] = []
     if let sec = s.section { w.append(sec) }
@@ -131,7 +131,7 @@ public struct ScriptView: View {
     return w.joined(separator: " · ")
   }
 
-  private func progress(_ s: BtwStatus?) -> Double {
+  private func progress(_ s: BeatscriptStatus?) -> Double {
     guard let s, s.running else { return 0 }
     if let b = s.songBar, let n = s.songBars, n > 0 { return min(1, Double(b) / Double(n)) }
     return model.liveMarks?.headerProgress ?? s.barFrac
@@ -320,7 +320,7 @@ struct AboutSheet: View {
       Form {
         Section {
           LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")
-          LabeledContent("Generator", value: btwGenerator())
+          LabeledContent("Generator", value: beatscriptGenerator())
         }
         Section("Licences") {
           Text("App code: MIT. BeatScript programs and content: CC0-1.0. The engine: stackdump/beatscript (MIT).")

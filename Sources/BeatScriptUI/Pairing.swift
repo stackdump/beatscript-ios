@@ -22,7 +22,7 @@ public final class Pairing {
   public private(set) var host: String?
   public private(set) var fingerprint: String?
   public private(set) var user: String?
-  public var available: Bool { btwPairBuilt() }
+  public var available: Bool { beatscriptPairBuilt() }
 
   private weak var model: ScriptModel?
   private var stream: Task<Void, Never>?
@@ -54,8 +54,8 @@ public final class Pairing {
   /// A scanned or opened `https://<site>/pair#<id>.<token>`.
   public func pair(_ link: String) async {
     guard available else { state = .failed("This build has no network."); return }
-    let offer: BtwPairOffer
-    do { offer = try btwPairParse(link: link) } catch {
+    let offer: BeatscriptPairOffer
+    do { offer = try beatscriptPairParse(link: link) } catch {
       state = .failed("That isn't a pairing code (\(error)).")
       return
     }
@@ -65,9 +65,9 @@ public final class Pairing {
     }
     state = .claiming
     do {
-      let seed = try Keychain.seed() ?? { let s = try btwPairNewKey(); try Keychain.store(s); return s }()
+      let seed = try Keychain.seed() ?? { let s = try beatscriptPairNewKey(); try Keychain.store(s); return s }()
       let name = Pairing.deviceName
-      let body = try btwPairClaimBody(offer: offer, seed: seed, name: name, tsMs: Pairing.now)
+      let body = try beatscriptPairClaimBody(offer: offer, seed: seed, name: name, tsMs: Pairing.now)
       var req = URLRequest(url: URL(string: "\(offer.origin)/api/pair/claim")!)
       req.httpMethod = "POST"
       req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -81,7 +81,7 @@ public final class Pairing {
       deviceID = id
       origin = offer.origin
       host = offer.host
-      fingerprint = hello.fingerprint ?? (try? btwPairFingerprint(seed: seed))
+      fingerprint = hello.fingerprint ?? (try? beatscriptPairFingerprint(seed: seed))
       user = hello.user ?? hello.address
       defaults.set(id, forKey: "pair.device")
       defaults.set(offer.origin, forKey: "pair.origin")
@@ -164,7 +164,7 @@ public final class Pairing {
   }
 
   private func handle(_ name: String, _ data: String) -> Ended {
-    guard let e = try? btwPairEvent(event: name, data: data) else { return .opened }
+    guard let e = try? beatscriptPairEvent(event: name, data: data) else { return .opened }
     log.info("pair event \(e.kind, privacy: .public)")
     switch e.kind {
     case "hello":
@@ -173,7 +173,7 @@ public final class Pairing {
     case "eval", "load":
       guard let model, let text = e.text else { break }
       // the CID is recomputed here: the program that plays is the one the site named
-      if let cid = e.cid, btwCid(text: text) != cid {
+      if let cid = e.cid, beatscriptCid(text: text) != cid {
         model.note = "The site sent a program whose CID doesn't match: not played."
         break
       }
@@ -247,7 +247,7 @@ public final class Pairing {
 
   private func signed(_ method: String, _ path: String, body: Data) throws -> URLRequest {
     guard let seed = try Keychain.seed(), let deviceID, let origin, let host else { throw URLError(.userAuthenticationRequired) }
-    let auth = try btwPairAuth(
+    let auth = try beatscriptPairAuth(
       seed: seed, host: host, deviceId: deviceID, method: method, path: path, tsMs: Pairing.now, body: body)
     var req = URLRequest(url: URL(string: origin + path)!)
     req.httpMethod = method

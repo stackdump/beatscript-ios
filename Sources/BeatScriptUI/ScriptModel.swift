@@ -15,16 +15,16 @@ public final class ScriptModel {
 
   /// The editor's text. Every change is checked (debounced) for the problems line.
   public var text: String = "" { didSet { if text != oldValue { scheduleCheck() } } }
-  public private(set) var check: BtwEval?
-  public private(set) var lastEval: BtwEval?
-  public private(set) var status: BtwStatus?
-  public private(set) var marks: BtwMarks?
+  public private(set) var check: BeatscriptEval?
+  public private(set) var lastEval: BeatscriptEval?
+  public private(set) var status: BeatscriptStatus?
+  public private(set) var marks: BeatscriptMarks?
   public private(set) var tempo: Double = 0
   public private(set) var level: Float = 0
   public var follow = true
   /// A note for the person, shown in the card that did the thing (DESIGN: no toasts).
   public var note: String?
-  public private(set) var examples: [BtwExample] = []
+  public private(set) var examples: [BeatscriptExample] = []
   public private(set) var share: Links.SiteForms?
   public let pairing: Pairing
 
@@ -39,7 +39,7 @@ public final class ScriptModel {
     self.storeDir = store
     self.soundFontDir = soundFontDir
     pairing = Pairing()
-    examples = btwExamples()
+    examples = beatscriptExamples()
     if let first = examples.first(where: { $0.name == "arrange-in-eight-lines" }) ?? examples.first {
       text = first.text
     }
@@ -99,7 +99,7 @@ public final class ScriptModel {
   }
 
   public func fmt() {
-    let f = btwFmt(text: text)
+    let f = beatscriptFmt(text: text)
     if f.ok { text = f.text } else { check = check.map { $0 } }
   }
 
@@ -121,7 +121,7 @@ public final class ScriptModel {
     }
   }
 
-  public func load(example: BtwExample) {
+  public func load(example: BeatscriptExample) {
     text = example.text
     note = nil
   }
@@ -154,13 +154,13 @@ public final class ScriptModel {
   }
 
   /// The marks apply only while the editor holds the text the program was evaluated from.
-  public var liveMarks: BtwMarks? {
+  public var liveMarks: BeatscriptMarks? {
     guard let m = marks, m.running, m.source == text else { return nil }
     return m
   }
 
   /// The problems line: the latest check of the editor's text.
-  public var problems: [BtwDiag] { check?.diagnostics ?? [] }
+  public var problems: [BeatscriptDiag] { check?.diagnostics ?? [] }
 
   // MARK: polling
 
@@ -196,7 +196,7 @@ public final class ScriptModel {
     checkTask = Task.detached(priority: .utility) { [weak self] in
       try? await Task.sleep(nanoseconds: 250_000_000)
       if Task.isCancelled { return }
-      let ev = btwCheck(text: t, storeDir: store)
+      let ev = beatscriptCheck(text: t, storeDir: store)
       await MainActor.run { [weak self] in
         guard let self, self.text == t else { return }
         self.check = ev

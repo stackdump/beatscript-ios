@@ -19,7 +19,7 @@ public final class BeatScriptEngine: @unchecked Sendable {
     info = player.info()
     let store = storeDir ?? BeatScriptEngine.defaultDir("programs")
     try? FileManager.default.createDirectory(atPath: store, withIntermediateDirectories: true)
-    player.btwUseStore(dir: store)
+    player.beatscriptUseStore(dir: store)
   }
 
   /// Documents/<name>: visible in the Files app on an iPad.
@@ -46,15 +46,15 @@ public final class BeatScriptEngine: @unchecked Sendable {
 
   /// Check and stage `text`: it lands on the next bar (at once when nothing plays). A deck Stop
   /// faded out gets its fader back first, so the program is heard from its first step.
-  public func eval(_ text: String) -> BtwEval {
+  public func eval(_ text: String) -> BeatscriptEval {
     restoreFaders()
-    return player.btwEval(text: text)
+    return player.beatscriptEval(text: text)
   }
 
   /// The app's Stop (beatscript.app's Stop): the program ends and nothing sounds, at once.
-  /// The language's own `stop` (decks play on) is `player.btwStop()`; this is not that.
+  /// The language's own `stop` (decks play on) is `player.beatscriptStop()`; this is not that.
   ///
-  /// `btwStopSound` alone is neither at once nor silent. It queues the decks' stop for the render
+  /// `beatscriptStopSound` alone is neither at once nor silent. It queues the decks' stop for the render
   /// thread, and `state(deck).playing` is that thread's mirror, written at the end of its next
   /// block. And djrust's transport stop is all-notes-off (CC 123), not all-sound-off: "the tails ring
   /// out, as a deck's room does", so the strips stay above -60 dB for a second or more. So the
@@ -62,7 +62,7 @@ public final class BeatScriptEngine: @unchecked Sendable {
   /// behind them unheard, and this returns once the render thread has taken the stop (the mirrors
   /// read stopped), or after `wait` seconds with no audio running.
   public func stop(wait: TimeInterval = 0.25) {
-    player.btwStopSound()
+    player.beatscriptStopSound()
     // read after the stop: it has put back what the program's own `mixer` lines changed
     fadedLock.lock()
     for d in Self.decks {
@@ -85,8 +85,8 @@ public final class BeatScriptEngine: @unchecked Sendable {
     faded.removeAll()
   }
 
-  public func status() -> BtwStatus { player.btwStatus() }
-  public func marks() -> BtwMarks { player.btwMarks() }
+  public func status() -> BeatscriptStatus { player.beatscriptStatus() }
+  public func marks() -> BeatscriptMarks { player.beatscriptMarks() }
   public func deck(_ d: String) -> DeckState? { try? player.state(deck: d) }
 
   /// The loudest deck as heard: its meter (the strip's peak, before the fader) times its fader.

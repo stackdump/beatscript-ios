@@ -11,7 +11,7 @@
 #                          nothing from it is committed here: the bindings and fixtures it yields are ignored)
 #   beatscript <rev>       stackdump/beatscript (public), the engine crates. The snapshot's Cargo.toml has every
 #                          beatscript rev rewritten to this one (what beatscript-app's own pin bumps do) and
-#                          `cargo update -p djengine -p djhost -p djlive -p btwapi -p btwseal` moves the lock.
+#                          `cargo update -p djengine -p djhost -p djlive -p beatscript-api -p beatscript-seal` moves the lock.
 #                          Empty: the crate's own pin is used and the build is --locked.
 # `UPDATE=1` re-pins both to origin/main and rewrites rust/PINS.
 #
@@ -44,8 +44,10 @@ if [ "$(cat "$U/.beatscript-app.rev" 2>/dev/null)" != "$key" ]; then
   git -C "$SRC/beatscript-app" archive "$APP_REV" rust | tar -x -C "$U/beatscript-app"
   if [ -n "$BS_REV" ]; then
     sed -E -i '' "s#(git = \"$BS_URL\", rev = \")[0-9a-f]+#\1$BS_REV#g" "$CRATE/Cargo.toml"
-    (cd "$CRATE" && cargo update -q -p djengine -p djhost -p djlive -p btwapi -p btwseal)
+    (cd "$CRATE" && cargo update -q -p djengine -p djhost -p djlive -p beatscript-api -p beatscript-seal)
   fi
+  # fixes the pinned crate needs against this engine rev (until beatscript-app carries them itself)
+  for p in "$R"/patches/*.patch; do [ -f "$p" ] && patch -p1 -d "$U/beatscript-app" < "$p"; done
   echo "$key" > "$U/.beatscript-app.rev"; echo "snapshot beatscript-app @ ${APP_REV:0:7}, beatscript @ ${BS_REV:0:7}"
 fi
 LOCK=--locked; [ -n "$BS_REV" ] && LOCK=""
@@ -88,8 +90,8 @@ rm "$D/entries.xml"; plutil -lint "$X/Info.plist"
 mkdir -p "$ROOT/Sources/BeatScriptEngine" && cp "$T/bindings/djmobile.swift" "$ROOT/Sources/BeatScriptEngine/djmobile.swift"
 
 # the parity fixtures the XCTests read: the same files the crate's btw_parity / generate_parity read
-F="$ROOT/Tests/BeatScriptParityTests/Fixtures"; rm -rf "$F"; mkdir -p "$F/btw-examples"
-cp "$CRATE/tests/btw_golden.json" "$CRATE/tests/generate_fixtures.json" "$F/"
-cp "$CRATE"/btw-examples/*.btw "$F/btw-examples/"
+F="$ROOT/Tests/BeatScriptParityTests/Fixtures"; rm -rf "$F"; mkdir -p "$F/beatscript-examples"
+cp "$CRATE/tests/beatscript_golden.json" "$CRATE/tests/generate_fixtures.json" "$F/"
+cp "$CRATE"/beatscript-examples/*.beatscript "$F/beatscript-examples/"
 echo "$key" > "$F/PIN"
 du -sh "$X"; echo "xcframework: rust/dist/djmobileFFI.xcframework (pins: rust/PINS)"

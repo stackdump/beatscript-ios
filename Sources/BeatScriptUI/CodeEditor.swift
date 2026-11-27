@@ -40,7 +40,7 @@ enum Palette {
   /// marks, and, with Follow on, scrolled to keep the line that plays in view.
   struct CodeEditor: UIViewRepresentable {
     @Binding var text: String
-    var marks: BtwMarks?
+    var marks: BeatscriptMarks?
     var follow: Bool
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -80,7 +80,7 @@ enum Palette {
     final class Coordinator: NSObject, UITextViewDelegate {
       var parent: CodeEditor
       var highlightedFor: String?
-      var highlights: [BtwHighlight] = []
+      var highlights: [BeatscriptHighlight] = []
       var litKey = ""
       var followedLine: UInt32 = 0
       static let font = UIFont.monospacedSystemFont(ofSize: 15, weight: .regular)
@@ -92,11 +92,11 @@ enum Palette {
       }
 
       /// Token colours (recomputed when the text changes) and the marks over them.
-      func paint(_ v: UITextView, marks: BtwMarks?) {
+      func paint(_ v: UITextView, marks: BeatscriptMarks?) {
         let text = v.text ?? ""
         let n = (text as NSString).length
         if highlightedFor != text {
-          highlights = btwHighlight(text: text)
+          highlights = beatscriptHighlight(text: text)
           highlightedFor = text
           litKey = "\u{0}"  // repaint: the colours are new even when nothing is lit
         }
@@ -124,7 +124,7 @@ enum Palette {
       }
 
       /// Keep the playing line a third of the way down (once per line, not every frame).
-      func follow(_ v: UITextView, to line: BtwSpan) {
+      func follow(_ v: UITextView, to line: BeatscriptSpan) {
         guard line.line != followedLine, !v.isFirstResponder || !v.isDragging else { return }
         followedLine = line.line
         let n = (v.text as NSString).length
@@ -139,7 +139,7 @@ enum Palette {
   /// macOS (tests and previews only): a plain editor.
   struct CodeEditor: View {
     @Binding var text: String
-    var marks: BtwMarks?
+    var marks: BeatscriptMarks?
     var follow: Bool
     var body: some View { TextEditor(text: $text).font(.system(.body, design: .monospaced)) }
   }

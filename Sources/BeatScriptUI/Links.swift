@@ -64,7 +64,7 @@ public enum Links {
 
   /// `text`'s links: the engine's own (`beats.bitwrap.io/p#…`) and the site's `/#` and `/c/` forms of it.
   public static func share(_ text: String, notes: Bool = false, storeDir: String? = nil) throws -> SiteForms {
-    let engine = try btwShareLinkIn(text: text, notes: notes, storeDir: storeDir)
+    let engine = try beatscriptShareLinkIn(text: text, notes: notes, storeDir: storeDir)
     guard let i = engine.firstIndex(of: "#") else { return SiteForms(engine: engine, page: engine, posts: engine) }
     let frag = String(engine[engine.index(after: i)...])
     return SiteForms(engine: engine, page: "\(site)/#\(frag)", posts: "\(site)/c/\(frag)")
@@ -124,7 +124,7 @@ public struct Opener: Sendable {
   }
 
   func local(_ link: String, from: String) throws -> Opened {
-    let o = btwOpenLink(link: link, storeDir: storeDir)
+    let o = beatscriptOpenLink(link: link, storeDir: storeDir)
     guard o.ok, let text = o.text, let cid = o.cid else {
       throw OpenError.refused(o.refused ?? "The link didn't open.")
     }
@@ -143,7 +143,7 @@ public struct Opener: Sendable {
     guard code == 200 else { throw OpenError.network("HTTP \(code)") }
     struct Answer: Decodable { let cid: String?; let text: String }
     guard let a = try? JSONDecoder().decode(Answer.self, from: data) else { throw OpenError.network("not a program") }
-    let got = btwCid(text: a.text)
+    let got = beatscriptCid(text: a.text)
     guard got == cid else { throw OpenError.mismatch(asked: cid, got: got) }
     return Opened(text: a.text, cid: cid, from: "beatscript.app", warnings: [])
   }

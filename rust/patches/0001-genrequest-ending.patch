@@ -1,0 +1,7 @@
+--- a/rust/src/beatscript/generate.rs
++++ b/rust/src/beatscript/generate.rs
+@@ -125,3 +125,3 @@
+ pub fn generate(req: &BeatscriptGenRequest) -> Result<BeatscriptGenerated, String> {
+-    let r = GenRequest { genre: req.genre.clone(), bpm: req.bpm, key: req.key.clone(), length: req.length.clone(), seed: req.seed.clone() };
++    let r = GenRequest { genre: req.genre.clone(), bpm: req.bpm, key: req.key.clone(), length: req.length.clone(), seed: req.seed.clone(), ending: String::new() };
+     let g = gen::generate(&r)?;
