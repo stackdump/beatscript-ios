@@ -113,6 +113,13 @@ final class GenerateParityTests: XCTestCase {
 
   func testTheIPadGeneratesWhatMCPGenerateDoes() throws {
     let fx = try Self.fixtures()
+    if let have = fx.first?.generator, have != beatscriptGenerator() {
+      // strict: once beatscript-app regenerates its fixtures at the engine's generator this passes, and the
+      // expectation fails the run until it is removed. The fixtures are never re-blessed here.
+      XCTExpectFailure(
+        "beatscript-app's generate_fixtures.json is \(have); this engine (rust/PINS) generates \(beatscriptGenerator()). "
+          + "testTheIPadGeneratesTheEnginesSeededVersion holds the iPad meanwhile")
+    }
     XCTAssertGreaterThanOrEqual(fx.count, 7)
     XCTAssertTrue(fx.contains { $0.req.genre == "trap" && $0.req.seed == "54877" && $0.req.bpm == 140 && $0.req.key == "dm" })
     XCTAssertTrue(fx.contains { $0.req.genre == "dubstep" && $0.req.seed == "54876" })
@@ -133,6 +140,34 @@ final class GenerateParityTests: XCTestCase {
       XCTAssertTrue(h.current, label)
       XCTAssertEqual(try beatscriptRegenerate(text: f.text, seed: f.req.seed).text, f.text, "\(label): made again from its own header")
     }
+  }
+}
+
+extension GenerateParityTests {
+  /// The engine's own rule (stackdump/beatscript crates/beatscript-api/tests/gen.rs): seeded@4 is seeded@3 with the
+  /// acid genre's bass on the 303, so for every other genre a seeded@3 fixture is seeded@4's program but for its
+  /// `#! generator:` line, which is a header and not in the canonical text (the CID is the same). This holds the iPad
+  /// to the web's generator while beatscript-app's fixtures still name seeded@3. (acid 4411 short was compared with
+  /// beatscript.app's MCP `generate` by hand: z4EBG9jDFzqUZFBiVQ8GozXtDqaNZGzsej5wyEp3UJW3DTzKiyK on both.)
+  func testTheIPadGeneratesTheEnginesSeededVersion() throws {
+    let fx = try Self.fixtures()
+    guard fx.first?.generator == "seeded@3", beatscriptGenerator() == "seeded@4" else {
+      throw XCTSkip("fixtures \(fx.first?.generator ?? "none"), engine \(beatscriptGenerator()): the fixture test holds them")
+    }
+    var compared = 0
+    for f in fx where f.req.genre != "acid" {
+      let label = "\(f.req.genre) \(f.req.seed) bpm=\(String(describing: f.req.bpm)) key=\(f.req.key) length=\(f.req.length)"
+      let g = try beatscriptGenerate(req: f.req)
+      XCTAssertEqual(g.text, f.text.replacingOccurrences(of: "#! generator: seeded@3", with: "#! generator: seeded@4"), "\(label): the text")
+      XCTAssertEqual(g.cid, f.cid, "\(label): the CID")
+      XCTAssertEqual(g.name, f.name, "\(label): the track name")
+      XCTAssertEqual(g.generator, "seeded@4", label)
+      let h = try XCTUnwrap(beatscriptSeeded(text: g.text), "\(label): no seeded header")
+      XCTAssertTrue(h.current, label)
+      XCTAssertEqual(try beatscriptRegenerate(text: g.text, seed: f.req.seed).text, g.text, "\(label): made again from its own header")
+      compared += 1
+    }
+    XCTAssertGreaterThanOrEqual(compared, 6)
   }
 }
 

@@ -15,7 +15,8 @@ Bundle id `app.beatscript`, iPadOS 18+, arm64.
 | `rust/PINS` | the two revisions it builds: the Android app's UniFFI crate (`djmobile`, in `stackdump/beatscript-app` `rust/`) and the engine, public [stackdump/beatscript](https://github.com/stackdump/beatscript), which every `beatscript` git dependency of the crate is set to |
 | `Sources/BeatScriptEngine` | `Engine.swift`: a small face over the bindings (the audio session, Eval, Stop, status, marks, levels) |
 | `Sources/BeatScriptUI` | the screen (`ScriptView`), the editor (`CodeEditor`: the engine's highlighting, the lit lines, Follow), the model, the link router and the CID fetch (`Links`), the pairing transport (`Pairing`) |
-| `Tests/BeatScriptParityTests` | XCTest: CID parity (`btw_parity`, `generate_parity`), the site, the link forms, and a playback check |
+| `Tests/BeatScriptParityTests` | XCTest: CID parity (`btw_parity`, `generate_parity`), the engine's own `cid-pins.json` at the pin, beatscript.app's live `/api/check`, the link forms, and a playback check |
+| `docs/ADOPTER-TIER.md` | the plan for native iPad, Android and desktop after the PWA (R19) |
 | `App/BeatScript.xcodeproj` | the iPad app target over the package's `BeatScriptUI` |
 
 ## Build
@@ -30,7 +31,7 @@ make sim-test         # the XCTests on an iPad simulator (SIM="iPad mini (A20 Pr
 make sim              # build, install and launch the app on that simulator
 ```
 
-`UPDATE=1 make engine` re-pins both revisions to their `main`. The engine is built with the crate's `network`
+`UPDATE=1 make engine` re-pins both revisions to their `main`. djrust, djrust-wallet and windwheel are set to the revs the engine's root `Cargo.toml` pins, and the build stops if the lock holds two revs of any git source. The engine is built with the crate's `network`
 feature (pairing). The device app is about 17 MB and links nothing but system frameworks.
 
 Launch environment (debug aids; `SIMCTL_CHILD_` prefix on the simulator): `BEATSCRIPT_EXAMPLE=<name>`,

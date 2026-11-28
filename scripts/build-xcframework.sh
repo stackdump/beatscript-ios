@@ -12,6 +12,8 @@
 #   beatscript <rev>       stackdump/beatscript (public), the engine crates. The snapshot's Cargo.toml has every
 #                          beatscript rev rewritten to this one (what beatscript-app's own pin bumps do) and
 #                          `cargo update -p djengine -p djhost -p djlive -p beatscript-api -p beatscript-seal` moves the lock.
+#                          djrust, djrust-wallet and windwheel are set to the revs the engine's root Cargo.toml
+#                          pins, so the lock holds one rev per git source (checked: two would link two djrusts).
 #                          Empty: the crate's own pin is used and the build is --locked.
 # `UPDATE=1` re-pins both to origin/main and rewrites rust/PINS.
 #
@@ -44,7 +46,16 @@ if [ "$(cat "$U/.beatscript-app.rev" 2>/dev/null)" != "$key" ]; then
   git -C "$SRC/beatscript-app" archive "$APP_REV" rust | tar -x -C "$U/beatscript-app"
   if [ -n "$BS_REV" ]; then
     sed -E -i '' "s#(git = \"$BS_URL\", rev = \")[0-9a-f]+#\1$BS_REV#g" "$CRATE/Cargo.toml"
-    (cd "$CRATE" && cargo update -q -p djengine -p djhost -p djlive -p beatscript-api -p beatscript-seal)
+    # djrust, djrust-wallet and windwheel follow the revs the engine's root Cargo.toml pins (the crate says they
+    # must): otherwise the crate's own older djrust pin links a second djrust beside the engine's.
+    ROOT_TOML=$(curl -fsSL "https://raw.githubusercontent.com/stackdump/beatscript/$BS_REV/Cargo.toml")
+    for url in https://github.com/stackdump/djrust https://github.com/stackdump/windwheel-bitwrap-io; do
+      rev=$(printf '%s\n' "$ROOT_TOML" | grep -o "git = \"$url\", rev = \"[0-9a-f]*" | sed 's/.*rev = "//' | sort -u)
+      [ "$(printf '%s\n' "$rev" | grep -c .)" = 1 ] || { echo "engine root Cargo.toml: no single rev for $url: $rev" >&2; exit 1; }
+      sed -E -i '' "s#(git = \"$url\", rev = \")[0-9a-f]+#\1$rev#g" "$CRATE/Cargo.toml"
+    done
+    (cd "$CRATE" && cargo update -q -p djengine -p djhost -p djlive -p beatscript-api -p beatscript-seal \
+      -p djrust -p djrust-wallet -p windwheel)
   fi
   # fixes the pinned crate needs against this engine rev (until beatscript-app carries them itself)
   for p in "$R"/patches/*.patch; do [ -f "$p" ] && patch -p1 -d "$U/beatscript-app" < "$p"; done
@@ -52,6 +63,11 @@ if [ "$(cat "$U/.beatscript-app.rev" 2>/dev/null)" != "$key" ]; then
 fi
 LOCK=--locked; [ -n "$BS_REV" ] && LOCK=""
 grep -o "$BS_URL\", rev = \"[0-9a-f]*" "$CRATE/Cargo.toml" | sort -u | sed 's/.*rev = "/beatscript engine rev: /'
+# one rev per git source in the lock, or two copies of a crate are linked
+gitsrc() { grep '^source = "git+' "$CRATE/Cargo.lock" | sed -E 's/^source = "git\+([^?]*)\?rev=([0-9a-f]+).*/\1 \2/' | sort -u; }
+dup=$(gitsrc | awk '{n[$1]++} END {for (u in n) if (n[u] > 1) print u}')
+[ -z "$dup" ] || { echo "more than one rev of: $dup" >&2; exit 1; }
+gitsrc | sed 's/^/  locked: /'
 
 export CARGO_TARGET_DIR="$R/target"
 # line tables only; the app dead-strips. Keep the .a small enough to handle.
@@ -93,5 +109,16 @@ mkdir -p "$ROOT/Sources/BeatScriptEngine" && cp "$T/bindings/djmobile.swift" "$R
 F="$ROOT/Tests/BeatScriptParityTests/Fixtures"; rm -rf "$F"; mkdir -p "$F/beatscript-examples"
 cp "$CRATE/tests/beatscript_golden.json" "$CRATE/tests/generate_fixtures.json" "$F/"
 cp "$CRATE"/beatscript-examples/*.beatscript "$F/beatscript-examples/"
+# and the engine's own CID pins at the pinned rev (crates/beatscript-api/tests/cid-pins.json: every program in
+# stackdump/beatscript, the CIDs beatscript.app computes), with the programs it names, from cargo's checkout
+BS_ROOT=$(cd "$CRATE" && cargo metadata -q --format-version 1 --offline | python3 -c '
+import json, os, sys
+m = json.load(sys.stdin)
+print(next(os.path.dirname(os.path.dirname(os.path.dirname(p["manifest_path"]))) for p in m["packages"] if p["name"] == "djlive"))')
+P="$BS_ROOT/crates/beatscript-api/tests/cid-pins.json"
+mkdir -p "$F/engine-pins"; cp "$P" "$F/engine-pins/"
+python3 -c 'import json, sys; print("\n".join(json.load(open(sys.argv[1]))))' "$P" | while read -r rel; do
+  mkdir -p "$F/engine-pins/$(dirname "$rel")"; cp "$BS_ROOT/$rel" "$F/engine-pins/$rel"
+done
 echo "$key" > "$F/PIN"
 du -sh "$X"; echo "xcframework: rust/dist/djmobileFFI.xcframework (pins: rust/PINS)"
